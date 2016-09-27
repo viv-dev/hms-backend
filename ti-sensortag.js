@@ -1,6 +1,6 @@
 
 /*-------------------------------------------------------------------
-						SENSOR TAG HANDLING
+SENSOR TAG HANDLING
 -------------------------------------------------------------------*/
 /*    	The sequence you need to follow in order to successfully
     	read a tag:
@@ -51,7 +51,7 @@ function TI_SensorTag(UUID, sensorID, sensorName, roomID, roomName, logInterval)
     this._roomName = roomName;
 
     this._logInterval = logInterval;
-    this._logName = sensorID + '_' + roomName + '.log';
+    this._logName = sensorID + '_' + sensorName + '.log';
     this._logger = new Logger("./logs");
 }
 
@@ -100,6 +100,7 @@ TI_SensorTag.prototype.enableSensors = function()
         this.tag.enableIrTemperature();
         this.tag.enableLuxometer();
 
+        console.log('Beggining logging...');
         //Wait 2 seconds before trying to read sensor data
         setTimeout(this.readSensors.bind(this),2000);
 
@@ -115,9 +116,9 @@ TI_SensorTag.prototype.readSensors = function()
                 
                 this.tag.readIrTemperature(function(error, objectTemperature, ambientTemperature)
                 {
-                    console.log('readIrTemperature');
-                    console.log('\tobject temperature = %d °C', objectTemperature.toFixed(1));
-                    console.log('\tambient temperature = %d °C', ambientTemperature.toFixed(1));
+                    //console.log('readIrTemperature');
+                    //console.log('\tobject temperature = %d °C', objectTemperature.toFixed(1));
+                    //console.log('\tambient temperature = %d °C', ambientTemperature.toFixed(1));
 
                     callback(null, ambientTemperature);
                 });
@@ -127,8 +128,8 @@ TI_SensorTag.prototype.readSensors = function()
             {
                 this.tag.readLuxometer(function(error, lux)
                 {
-                    console.log('readLuxometer');
-                    console.log('\tlux = %d', lux.toFixed(1));
+                    //console.log('readLuxometer');
+                    //console.log('\tlux = %d', lux.toFixed(1));
 
                     callback(null, lux);
                 });
@@ -138,9 +139,9 @@ TI_SensorTag.prototype.readSensors = function()
             {
                 this.tag.readHumidity(function(error, temperature, humidity)
                 {
-                    console.log('readHumidity');
-                    console.log('\ttemperature = %d °C', temperature.toFixed(1));
-                    console.log('\thumidity = %d %', humidity.toFixed(1));
+                    //console.log('readHumidity');
+                    //console.log('\ttemperature = %d °C', temperature.toFixed(1));
+                    //console.log('\thumidity = %d %', humidity.toFixed(1));
 
                     callback(null, humidity);
                 });
@@ -157,9 +158,12 @@ TI_SensorTag.prototype.readSensors = function()
                                 '\",\"roomID\":\"' + this._roomId + 
                                 '\",\"roomName\":\"' + this._roomName + 
                                 '\",\"temperature\":\"' + data[0] + 
-                                '\",\"temperatureUnit\":\"C\",\"illuminance\":\"' +  data[1] + 
-                                '\",\"illuminanceUnit\":\"LUX\",\"humidity\":\"' + data[2] +
-                                '\",\"humidityUnit\":\"RH%\",\"@timestamp\":\"' + timestamp + '\"}\n';
+                                '\",\"temperatureUnit\":\"C' +
+                                '\",\"illuminance\":\"' +  data[1] + 
+                                '\",\"illuminanceUnit\":\"LUX' +
+                                '\",\"humidity\":\"' + data[2] +
+                                '\",\"humidityUnit\":\"RH%' +
+                                '\",\"@timestamp\":\"' + timestamp + '\"}\n';
 
                 this._logger.logSensorData(this._logName, logString);
             }

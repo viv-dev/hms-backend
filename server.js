@@ -13,15 +13,6 @@ const mongoose = require('mongoose');
 //Import our own custom sensor model
 const sensorModel = require('./models/sensor-model');
 
-//Import path module for directory crawling/management
-const path = require('path');
-
-//Import fs module for file read/write
-const fs = require('fs');
-
-//Time formatting module
-const moment = require('moment');
-
 /*-------------------------------------------------------------------
 CUSTOM IMPORTS
 -------------------------------------------------------------------*/
@@ -32,14 +23,8 @@ const TI_SensorTag = require('./ti-sensortag');
 GLOBAL VARIABLES
 -------------------------------------------------------------------*/
 
-//Log directory
-const logDir = path.join(__dirname, 'logs');
-
 //Sensor database directory
 const dbDir = 'mongodb://localhost/sensordb';
-
-//Number of sensor tags connected
-var totalTags = 0;
 
 /*-------------------------------------------------------------------
 SCRIPT START
@@ -55,7 +40,7 @@ var port = process.env.PORT || 8080;
 //Set up express
 const app = express();
 
-//Api router
+//API router
 var router = express.Router();
 
 // Configure body parser to be able to parse POST data
@@ -87,12 +72,18 @@ router.route('/sensors')
         console.log(req.body);
 
         console.log('UUID is ' + req.body.UUID);
-        console.log('SensorType is ' + req.body.SensorType);
-        console.log('Room is ' + req.body.Room);
+        console.log('sensorID is ' + req.body.sensorID);
+        console.log('sensorName is ' + req.body.sensorName);
+        console.log('roomID is ' + req.body.roomID);
+        console.log('roomName is ' + req.body.roomName);
+        console.log('logInterval is ' + req.body.logInterval);
 
         sensor.UUID = req.body.UUID;
-        sensor.SensorType = req.body.SensorType;
-        sensor.Room = req.body.Room;
+        sensor.sensorID = req.body.sensorID;
+        sensor.sensorName = req.body.sensorName;
+        sensor.roomID = req.body.roomID;
+        sensor.roomName = req.body.roomName;
+        ensor.logInterval = req.body.logInterval;
 
         sensor.save(function(err)
         {
@@ -144,8 +135,11 @@ router.route('/sensors/:sensor_id')
                 res.send(err);
 
             sensor.UUID = req.body.UUID;
-            sensor.SensorType = req.body.SensorType;
-            sensor.Room = req.body.Room;
+            sensor.sensorID = req.body.sensorID;
+            sensor.sensorName = req.body.sensorName;
+            sensor.roomID = req.body.roomID;
+            sensor.roomName = req.body.roomName;
+            sensor.logInterval = req.body.logInterval;
 
             sensor.save(function(err)
             {
