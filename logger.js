@@ -7,6 +7,9 @@ const fs = require('fs');
 //Time formatting module
 const moment = require('moment');
 
+//Provides OS consistend end of line
+const eol = require('eol')
+
 /*-------------------------------------------------------------------
 						LOG FUNCTIONS
 -------------------------------------------------------------------*/
@@ -43,13 +46,12 @@ Logger.prototype.directoryExists = function(filePath)
     }
 };
 
-Logger.prototype.logSensorData = function(fileName, sensorID, roomName, sensorValue, append = true)
+Logger.prototype.logSensorData = function(fileName, logString, append = true)
 {
-    const logPath = path.join(this.logDir, fileName);
-    const timestamp = moment().format();
-    const log = '{\"sensorID\":\"' + sensorID + '\",\"roomName\":\"' + roomName + '\",\"sensorValue\":\"' + sensorValue + '\",\"@timestamp\":\"' + timestamp + '\"}\n';
+    var logPath = path.join(this.logDir, fileName);
+    var log = eol.crlf(logString);
 
-    const flags = append ? { flag: 'a' } : {};
+    var flags = append ? { flag: 'a' } : {};
 
     fs.writeFile(logPath, log, flags, (error) =>
     {
@@ -59,6 +61,7 @@ Logger.prototype.logSensorData = function(fileName, sensorID, roomName, sensorVa
         }
     });
 };
+
 
 //Enable class to be exported
 module.exports = Logger;

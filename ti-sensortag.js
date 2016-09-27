@@ -6,7 +6,7 @@
     	read a tag:
     		1) discover the tag
     		2) connect to and set up the tag
-    		3) turn on the sensor you want to use (in this case, humidity and temp)
+    		3) turn on the sensor you want to use (in this case, humidity, temp, and lux)
     		4) turn on notifications for the sensor
     		5) listen for changes from the sensortag
 
@@ -18,110 +18,58 @@
 //Module defines a set of functions used to setup and manage a TI sensor tag
 //The 'tag' object is passed in by the SensorTag.discover() function.
 
+
+/*-------------------------------------------------------------------
+NPM IMPORTS
+-------------------------------------------------------------------*/
 //Sensor Tag library
 const SensorTag = require('sensortag');
 
+//Time formatting module
+const moment = require('moment');
+
+// Async module to handle asynchronous callbacks
+var async = require('async');
+
+/*-------------------------------------------------------------------
+CUSTOM IMPORTS
+-------------------------------------------------------------------*/
 //Import custom logger class
 const Logger = require('./logger');
 
-// function TI_SensorTag(sensorID, UUID, room, sensorType)
-// {
-//     var _sensorID = sensorID;
-//     var _UUID = UUID;
-//     var _room = room;
-//     var _logName = sensorID + '_' + room + '_' + sensorType + '.log';
+/*-------------------------------------------------------------------
+CLASS DEFINITION
+-------------------------------------------------------------------*/
 
-//     //Make sure log directory exists
-//     var logger = new Logger("./logs");
-
-//     this.discover = function()
-//     {
-//         SensorTag.discover(this.sensorHandler.bind(this)); 
-
-//         console.log('Test Log!');
-//         logger.logSensorData(this._logName, this._sensorID, this._room, "Test");
-//     };
-
-//     this.sensorHandler = function(tag)
-//     {
-//         _this = this;
-//        //Tie callback function to sensortag disconnect
-//         tag.on('disconnect', function()
-//         {
-//             console.log('Disconnected!');
-//         });
-
-//         function connectAndSetUpMe()
-//         {
-//             //attempt to connect to the tag
-//             console.log('connectAndSetUp');
-//             tag.connectAndSetUp(enableSensors); // when you connect and device is setup, call enableAccelMe
-//         }
-
-//         function enableSensors()
-//         {
-//             console.log('Enabling sensors...');
-
-//             //Enable temperature sensors and start sensor listeners
-//             tag.enableHumidity(startHumidity);
-//         }
-
-//         function startHumidity()
-//         {
-//             // Start the humidity listener
-//             tag.notifyHumidity(listenForHumidity);
-//         }
-
-//         // When you get a humidity change, print it out:
-//         function listenForHumidity()
-//         {
-//             console.log('Logging Temperature data');
-//             tag.on('humidityChange', function(temperature, humidity)
-//             {
-//                 logSensorData();
-//                 //logSensorData(sensorLog, sensorId, roomName, temperature);
-//                 // console.log('\ttemperature = %d G', temperature.toFixed(1));
-//                 // console.log('\thumidity = %d G', humidity.toFixed(1));
-//             });
-//         }
-
-//         function logSensorData()
-//         {
-//             console.log(_this.UUID);
-//         }
-
-//         // Now that you've defined all the functions, start the process:
-//         connectAndSetUpMe();   
-//     }
-    
-//     //console.log('Test Log!');
-//     //this.logger.logSensorData(this.logName, this.sensorID, this.room, "Test");
-// };
-
-function TI_SensorTag(sensorID, UUID, room, sensorType)
+//'Class' constructor
+function TI_SensorTag(UUID, sensorID, sensorName, roomID, roomName, logInterval)
 {
+    this._UUID = UUID;
     this._sensorID = sensorID;
-    this. _UUID = UUID;
-    this._room = room;
-    this._logName = sensorID + '_' + room + '_' + sensorType + '.log';
-    this.logger = new Logger("./logs");
+    this._sensorName = sensorName;
+    this._roomId = roomID;
+    this._roomName = roomName;
+
+    this._logInterval = logInterval;
+    this._logName = sensorID + '_' + roomName + '.log';
+    this._logger = new Logger("./logs");
 }
 
 TI_SensorTag.prototype.discover = function()
 {
-    SensorTag.discover(this.getTag.bind(this)); 
-
-    console.log('Test Log!');
-    this.logger.logSensorData("Test", "Test", "Test", "Test");
+    //SensorTag.discover(this.getTag.bind(this)); 
+    console.log('Trying to connect to sensor with UUID: %s', this._UUID);
+    SensorTag.discoverById(this._UUID, this.getTag.bind(this));
 };
 
 TI_SensorTag.prototype.getTag = function(tag)
 {
+    //Make sure we have a valid tag
     if(typeof tag !== 'undefined' && tag)
     {
         this.tag = tag;
         
-        // Now that you've defined all the functions, start the process:
+        //Report when tag is disconnected
         this.tag.on('disconnect', function()
         {
             console.log('Disconnected!');
@@ -138,165 +86,103 @@ TI_SensorTag.prototype.getTag = function(tag)
 TI_SensorTag.prototype.connectAndSetUp = function()
 {
     //attempt to connect to the tag
-    console.log('connectAndSetUp');
-    this.tag.connectAndSetUp(this.enableSensors.bind(this)); // when you connect and device is setup, call enableAccelMe
+    console.log('Sensor tag discovered! Connecting and setting up...');
+    
+    this.tag.connectAndSetUp(this.enableSensors.bind(this));
+    this.tag.notifySimpleKey(this.listenForButton.bind(this));
 };
 
 TI_SensorTag.prototype.enableSensors = function()
 {
         console.log('Enabling sensors...');
 
-        //Enable temperature sensors and start sensor listeners
-        //tag.enableIrTemperature(startTemp);
-        this.tag.enableHumidity(this.startHumidity.bind(this));
+        this.tag.enableHumidity();
+        this.tag.enableIrTemperature();
+        this.tag.enableLuxometer();
+
+        //Wait 2 seconds before trying to read sensor data
+        setTimeout(this.readSensors.bind(this),2000);
+
 };
 
-TI_SensorTag.prototype.startHumidity = function()
+// Call a parallel async flow at a set time interval to handle sensor reading
+TI_SensorTag.prototype.readSensors = function()
 {
-    // Start the humidity listener
-    this.tag.notifyHumidity(this.listenForHumidity.bind(this));
-};
+    async.parallel(
+        [
+            function(callback)
+            {
+                
+                this.tag.readIrTemperature(function(error, objectTemperature, ambientTemperature)
+                {
+                    console.log('readIrTemperature');
+                    console.log('\tobject temperature = %d °C', objectTemperature.toFixed(1));
+                    console.log('\tambient temperature = %d °C', ambientTemperature.toFixed(1));
 
-// When you get an temperature change, print it out:
-TI_SensorTag.prototype.listenForHumidity = function()
-{
-    var _this = this;
+                    callback(null, ambientTemperature);
+                });
+            }.bind(this),
 
-    console.log('Logging Temperature data');
+            function(callback)
+            {
+                this.tag.readLuxometer(function(error, lux)
+                {
+                    console.log('readLuxometer');
+                    console.log('\tlux = %d', lux.toFixed(1));
 
-    this.tag.on('humidityChange', function(temperature, humidity)
-    {
-        this.logger.logSensorData(this._logName, this._sensorID, this._room, temperature);
-        console.log('\ttemperature = %d C', temperature.toFixed(1));
-        // console.log('\thumidity = %d G', humidity.toFixed(1));
-    }.bind(this));
-};
+                    callback(null, lux);
+                });
+            }.bind(this),
 
-TI_SensorTag.prototype.sensorHandler = function(tag)
-{
-   //Tie callback function to sensortag disconnect
-    tag.on('disconnect', function()
-    {
-        console.log('Disconnected!');
-    });
+            function(callback)
+            {
+                this.tag.readHumidity(function(error, temperature, humidity)
+                {
+                    console.log('readHumidity');
+                    console.log('\ttemperature = %d °C', temperature.toFixed(1));
+                    console.log('\thumidity = %d %', humidity.toFixed(1));
 
-    function connectAndSetUpMe()
-    {
-        //attempt to connect to the tag
-        console.log('connectAndSetUp');
-        tag.connectAndSetUp(enableSensors); // when you connect and device is setup, call enableAccelMe
-    }
+                    callback(null, humidity);
+                });
+            }.bind(this)
+        ], 
 
-    function enableSensors()
-    {
-        console.log('Enabling sensors...');
-
-        //Enable temperature sensors and start sensor listeners
-        tag.enableHumidity(startHumidity);
-    }
-
-    function startHumidity()
-    {
-        // Start the humidity listener
-        tag.notifyHumidity(listenForHumidity);
-    }
-
-    // When you get a humidity change, print it out:
-    function listenForHumidity()
-    {
-        console.log('Logging Temperature data');
-        tag.on('humidityChange', function(temperature, humidity)
+        function(err, data)
         {
-            logSensorData();
-            //logSensorData(sensorLog, sensorId, roomName, temperature);
-            // console.log('\ttemperature = %d G', temperature.toFixed(1));
-            // console.log('\thumidity = %d G', humidity.toFixed(1));
-        });
-    }
+            if(data.length == 3)
+            {
+                var timestamp = moment().utc().format();
+                var logString = '{\"sensorID\":\"' + this._sensorID +
+                                '\",\"sensorName\":\"' + this._sensorName + 
+                                '\",\"roomID\":\"' + this._roomId + 
+                                '\",\"roomName\":\"' + this._roomName + 
+                                '\",\"temperature\":\"' + data[0] + 
+                                '\",\"temperatureUnit\":\"C\",\"illuminance\":\"' +  data[1] + 
+                                '\",\"illuminanceUnit\":\"LUX\",\"humidity\":\"' + data[2] +
+                                '\",\"humidityUnit\":\"RH%\",\"@timestamp\":\"' + timestamp + '\"}\n';
 
-    function logSensorData()
-    {
-        console.log(_this.UUID);
-    }
+                this._logger.logSensorData(this._logName, logString);
+            }
+            else
+            {
+                console.log('Error! Wrong number of sensor data elements read!')
+            }
+        }.bind(this));
 
-    // Now that you've defined all the functions, start the process:
-    connectAndSetUpMe();   
+    setTimeout(this.readSensors.bind(this), this._logInterval);
 }
 
-
+// Disconnect the sensor tag when both the left and right buttons are pressed
+TI_SensorTag.prototype.listenForButton = function()
+{
+    this.tag.on('simpleKeyChange', function(left,right)
+    {
+        if( left && right )
+        {
+            this.tag.disconnect();
+        }
+    });
+}
 
 //Enable class to be exported
 module.exports = TI_SensorTag;
-
-// function sensorTagModule(tag)
-// {
-//     sensorId = 0;
-//     roomName = "Kitchen";
-//     sensorLog = "";
-
-//     //Tie callback function to sensortag disconnect
-//     tag.on('disconnect', function()
-//     {
-//         console.log('Disconnected!');
-//         sensorId = 0;
-//         totalTags--;
-//     });
-
-//     function connectAndSetUpMe()
-//     {
-//         //attempt to connect to the tag
-//         console.log('connectAndSetUp');
-//         tag.connectAndSetUp(enableSensors); // when you connect and device is setup, call enableAccelMe
-//         totalTags++;
-//         sensorId = totalTags;
-//         sensorLog = "sensor" + sensorId + "_log.log";
-//     }
-
-//     function enableSensors()
-//     {
-//         console.log('Enabling sensors...');
-
-//         //Enable temperature sensors and start sensor listeners
-//         //tag.enableIrTemperature(startTemp);
-//         tag.enableHumidity(startHumidity);
-//     }
-
-//     function startTemp()
-//     {
-//         // Start the temperature listener
-//         tag.notifyIrTemperature(listenForTemp);
-//     }
-
-//     function startHumidity()
-//     {
-//         // Start the humidity listener
-//         tag.notifyHumidity(listenForHumidity);
-//     }
-
-//     // When you get an temperature change, print it out:
-//     function listenForTemp()
-//     {
-//         tag.on('irTemperatureChange', function(objectTemperature, ambientTemperature)
-//         {
-//             // console.log('\tobjectTemperature = %d G', objectTemperature.toFixed(1));
-//             // console.log('\tambientTemperature = %d G', ambientTemperature.toFixed(1));
-//         });
-//     }
-
-//     // When you get a humidity change, print it out:
-//     function listenForHumidity()
-//     {
-//         console.log('Logging Temperature data');
-//         tag.on('humidityChange', function(temperature, humidity)
-//         {
-//             logSensorData(sensorLog, sensorId, roomName, temperature);
-//             // console.log('\ttemperature = %d G', temperature.toFixed(1));
-//             // console.log('\thumidity = %d G', humidity.toFixed(1));
-//         });
-//     }
-
-//     // Now that you've defined all the functions, start the process:
-//     connectAndSetUpMe();
-// };
-
-//SensorTag.discover(sensorTagModule); replace as loop for no. of saved sensors

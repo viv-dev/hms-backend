@@ -1,5 +1,5 @@
 /*-------------------------------------------------------------------
-						  NPM IMPORTS
+NPM IMPORTS
 -------------------------------------------------------------------*/
 //Import express library/module
 const express = require('express');
@@ -22,21 +22,14 @@ const fs = require('fs');
 //Time formatting module
 const moment = require('moment');
 
-//Sensor Tag library
-const SensorTag = require('sensortag');
-
-const eol = require('eol')
-
 /*-------------------------------------------------------------------
-                          CUSTOM IMPORTS
+CUSTOM IMPORTS
 -------------------------------------------------------------------*/
 //Import sensor tag class
 const TI_SensorTag = require('./ti-sensortag');
 
-//Import custom logger class
-const Logger = require('./logger');
 /*-------------------------------------------------------------------
-							GLOBAL VARIABLES
+GLOBAL VARIABLES
 -------------------------------------------------------------------*/
 
 //Log directory
@@ -49,140 +42,7 @@ const dbDir = 'mongodb://localhost/sensordb';
 var totalTags = 0;
 
 /*-------------------------------------------------------------------
-                        SENSOR TAG HANDLING
--------------------------------------------------------------------*/
-
-var sensorHandler = function(tag)
-{
-    //Sensor ID's
-    var tempID = "1";
-    var humidityID = "2";
-    var luxID = "3";
-
-    //Sensor Info
-    var UUID = "ABCD";
-    var room = "Kitchen";
-
-    //File Names
-    var tempFile = tempID + '_' + room + '_Temperature.log';
-    var humidityFile = humidityID + '_' + room + '_Humidity.log';
-    var luxFile = luxID + '_' + room + '_Lux.log';
-
-    //Measurement Units
-    var celsius = "C";
-    var rhHumidity = "%RH";
-    var lux_u = "LUX";
-
-
-   
-   //Tie callback function to sensortag disconnect
-    tag.on('disconnect', function()
-    {
-        console.log('Disconnected!');
-    });
-
-    function connectAndSetUpMe()
-    {
-        //attempt to connect to the tag
-        console.log('connectAndSetUp');
-        tag.connectAndSetUp(enableSensors); // when you connect and device is setup, call enableAccelMe
-    }
-
-    function enableSensors()
-    {
-        console.log('Enabling sensors...');
-
-        //Enable temperature sensors and start sensor listeners
-        tag.enableHumidity(startHumidity);
-        tag.enableLuxometer(startLuxometer);
-    }
-
-    function startHumidity()
-    {
-        // Start the humidity listener
-        tag.notifyHumidity(listenForHumidityAndTemp); //Humidity callback includes temperature value
-    }
-
-    function startLuxometer()
-    {
-        tag.notifyLuxometer(listenForLux);
-    }
-
-    // When you get a humidity change, print it out:
-    function listenForHumidityAndTemp()
-    {
-        console.log('Logging Temperature data');
-        console.log('Logging Humidity data');
-        tag.on('humidityChange', function(temperature, humidity)
-        {
-            logSensorData(tempFile, tempID, room, temperature, "Temperature", celsius);
-            logSensorData(humidityFile, humidityID, room, temperature, "Humidity", rhHumidity);
-            // console.log('\ttemperature = %d G', temperature.toFixed(1));
-            // console.log('\thumidity = %d G', humidity.toFixed(1));
-        });
-    }
-
-    function listenForLux()
-    {
-        console.log('Logging Lux Data');
-        tag.on('luxometerChange', function(lux)
-        {
-            logSensorData(luxFile, luxID, room, lux, "Lux", lux_u);
-        });
-    }
-    // Now that you've defined all the functions, start the process:
-    connectAndSetUpMe();   
-}
-
-/*-------------------------------------------------------------------
-                        LOGGING
--------------------------------------------------------------------*/
-
-//Define class functions
-function logInit()
-{
-
-    if (!directoryExists(logDir))
-    {
-        fs.mkdirSync(logDir);
-    }
-
-    console.log('Logger created logging to: ' + logDir); 
-}
-
-function directoryExists(filePath)
-{
-    try
-    {
-        return fs.statSync(filePath).isDirectory();
-    }
-    catch (err)
-    {
-        return false;
-    }
-};
-
-function logSensorData(fileName, sensorID, roomName, sensorValue, sensorType, measurementUnit, append = true)
-{
-    var logPath = path.join(logDir, fileName);
-    var timestamp = moment().utc().format();
-    var log = '{\"sensorID\":\"' + sensorID + '\",\"roomName\":\"' + roomName + '\",\"sensorType\":\"' + sensorType + '\",\"sensorValue\":\"' + sensorValue + '\",\"measurementUnit\":\"' + measurementUnit + '\",\"@timestamp\":\"' + timestamp + '\"}\n';
-    var logcrlf = eol.crlf(log);
-
-    var flags = append ? { flag: 'a' } : {};
-
-    fs.writeFile(logPath, logcrlf, flags, (error) =>
-    {
-        if (error)
-        {
-            console.error('Write error to ${logPath} : ${error.message}');
-        }
-    });
-};
-
-
-/*-------------------------------------------------------------------
-						SCRIPT START
+SCRIPT START
 -------------------------------------------------------------------*/
 
 //Connect to mongoose database
@@ -198,16 +58,18 @@ const app = express();
 //Api router
 var router = express.Router();
 
-// configure body parser
+// Configure body parser to be able to parse POST data
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-//---------------RESTFUL API HANDLING---------------
+//******************REST API HANDLING******************
 /*
     This section setups all the express callbacks required
     to handle rest api requests.
 
 */
+
+// Middleware function called everytime a request to the router is made
 router.use(function(req, res, next)
 {
     console.log('API successfully called');
@@ -217,7 +79,7 @@ router.use(function(req, res, next)
 //Sensor API Routes
 router.route('/sensors')
 
-    // Add a sensor (accessed at POST http://localhost:8080/api/sensors)
+    // Add a sensor using HTTP POST (accessed at POST http://localhost:8080/api/sensors)
     .post(function(req,res)
     {
         var sensor = new sensorModel();
@@ -313,41 +175,47 @@ router.route('/sensors/:sensor_id')
     });
 //end of /sensors/:sensor_id routes
 
+
+// Return a JSON success message when accessing API root URL
 router.get('/', function(req, res)
 {
     res.json(
     {
-        message: 'hooray! welcome to our api!'
+        message: 'Hooray! Welcome to our API!'
     });
 });
 
-//Registering our routes
+// Set the root URL for the route to be /api
 app.use('/api', router); //all of the routes will be prefixed with /api
 
 
-//---------------INDEX HTML---------------
+//******************INDEX HTML HANDLING******************
 
+//HTTP GET requests to the root URL return the index.html page to let people know the server is running
 app.get('/', function(req, res)
 {
     res.sendFile(__dirname + '/index.html',
     {
-        title: 'ICTD Index'
+        title: 'Mystic Index'
     });
 });
 
-//Start web server listening
+//******************SERVER LISTENING******************
+
+// Set server to listen on configured port
 app.listen(port, function()
 {
-    console.log('Example app listening on port: ' + port);
+    console.log('Server app listening on port: ' + port);
 });
 
 
-//---------------LOGGING SETUP---------------
-//logInit();
-//console.log('Attempting to connect to sensor!');
-//SensorTag.discover(sensorHandler);
+//******************SENSOR HANDLING******************
 
-var ti_sensortag_1 = new TI_SensorTag("1", "ABBCCDD", "Lounge", "Temperature");
+// Create a new sensor tag class object
+var ti_sensortag_1 = new TI_SensorTag("a0e6f8af5407", "1", "KitchenEnvironment", "1", "Kitchen", 5000);
 //var ti_sensortag_2 = new TI_SensorTag("2", "ABBCCDD", "Lounge", "Temperature");
+
+//Set the sensor tag to discover tag with corresponding UUID
 ti_sensortag_1.discover();
 //ti_sensortag_2.discover();
+//Could create array of sensor objects dynamically created based on sensor config in database
