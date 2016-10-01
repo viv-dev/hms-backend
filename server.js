@@ -26,6 +26,79 @@ GLOBAL VARIABLES
 //Sensor database directory
 const dbDir = 'mongodb://localhost/sensordb';
 
+//Array to hold dynamically created sensortag objects
+var sensorTags = [];
+
+/*-------------------------------------------------------------------
+SENSOR OBJECT/CONFIG HANDLING
+-------------------------------------------------------------------*/
+
+function verifySensorData()
+{
+    //TO DO
+}
+
+function addSensorHandler(sensor)
+{
+    sensorTags.push(new TI_SensorTag(sensor));
+}
+
+function connectSensor(sensor)
+{
+    for(var i=0; i < sensorTags.length; i++)
+    {
+        if((sensorTags[i].getID() == sensor.id) && (sensor.loggingEnabled == true))
+        {
+            sensorTags[i].discover();
+            break;
+        }
+    }
+
+}
+
+function connectAllSensors()
+{
+    for(var i=0; i < sensorTags.length; i++)
+    {
+        if(sensorTags[i].getLoggingEnabled())
+            sensorTags[i].discover();
+    }
+}
+
+function updateSensorHandler(sensor)
+{
+    console.log("Update sensor called");
+    console.log("Looking for sensord id: %s", sensor.id);
+    for(var i=0; i < sensorTags.length; i++)
+    {
+        if(sensorTags[i].getID() == sensor.id)
+        {
+            sensorTags[i].
+
+            sensorTags[i].updateConfig(sensor);
+            break;
+        }
+    }
+}
+
+function loadSensors()
+{
+    sensorModel.find(function(err, sensors)
+    {
+        console.log('Loading sensors...');
+
+        var i = 0;
+        for(i; i < sensors.length; i++)
+        {
+            
+            sensorTags[i] = new TI_SensorTag(sensors[i]);
+        }
+
+        console.log('Loaded %d sensors', i);
+
+    });
+}
+
 /*-------------------------------------------------------------------
 SCRIPT START
 -------------------------------------------------------------------*/
@@ -77,20 +150,27 @@ router.route('/sensors')
         console.log('roomID is ' + req.body.roomID);
         console.log('roomName is ' + req.body.roomName);
         console.log('logInterval is ' + req.body.logInterval);
+        console.log('loggingEnabled is ' + req.body.loggingEnabled);
 
         sensor.UUID = req.body.UUID;
         sensor.sensorID = req.body.sensorID;
-        sensor.sensorName = req.body.sensorName;
+        sensor.sensorName = req.body.roomName + 'Environment';
         sensor.roomID = req.body.roomID;
         sensor.roomName = req.body.roomName;
-        ensor.logInterval = req.body.logInterval;
+        sensor.logInterval = req.body.logInterval;
+        sensor.loggingEnabled = req.body.loggingEnabled;
+
 
         sensor.save(function(err)
         {
             if(err)
-                    res.send(err);
+                res.send(err);
 
             res.json({message: 'Sensor added!'});
+
+            //Once successfully saved create a new sensorhandler object
+            addSensorHandler(sensor);
+            connectSensor(sensor);
         });
 
     })
@@ -134,12 +214,12 @@ router.route('/sensors/:sensor_id')
             if(err)
                 res.send(err);
 
-            sensor.UUID = req.body.UUID;
-            sensor.sensorID = req.body.sensorID;
-            sensor.sensorName = req.body.sensorName;
-            sensor.roomID = req.body.roomID;
-            sensor.roomName = req.body.roomName;
+            var prevLoggingEnabled = sensor.loggingEnabled;
+            var prevConnected = sensor.connected;
+
+            console.log('loggingEnabled is ' + req.body.loggingEnabled);
             sensor.logInterval = req.body.logInterval;
+            sensor.loggingEnabled = req.body.loggingEnabled;
 
             sensor.save(function(err)
             {
@@ -148,8 +228,12 @@ router.route('/sensors/:sensor_id')
 
                 res.json({message:'Sensor updated!'});
                 console.log('Sensor updated!');
-                console.log(sensor);
+
+                //Once successfully saved update sensor handler object
+                updateSensorHandler(sensor);
+
             });
+
         });
     })
 
@@ -188,7 +272,7 @@ app.use('/api', router); //all of the routes will be prefixed with /api
 //HTTP GET requests to the root URL return the index.html page to let people know the server is running
 app.get('/', function(req, res)
 {
-    res.sendFile(__dirname + '/index.html',
+    res.sendFile(__dirname + '/html/index.html',
     {
         title: 'Mystic Index'
     });
@@ -206,10 +290,16 @@ app.listen(port, function()
 //******************SENSOR HANDLING******************
 
 // Create a new sensor tag class object
-var ti_sensortag_1 = new TI_SensorTag("a0e6f8af5407", "1", "KitchenEnvironment", "1", "Kitchen", 5000);
+//var ti_sensortag_1 = new TI_SensorTag("a0e6f8af5407", "1", "KitchenEnvironment", "1", "Kitchen", 5000);
 //var ti_sensortag_2 = new TI_SensorTag("2", "ABBCCDD", "Lounge", "Temperature");
 
 //Set the sensor tag to discover tag with corresponding UUID
-ti_sensortag_1.discover();
+//ti_sensortag_1.discover();
 //ti_sensortag_2.discover();
 //Could create array of sensor objects dynamically created based on sensor config in database
+
+//Array to hold sensor tag objects
+
+
+loadSensors();
+

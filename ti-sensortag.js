@@ -31,6 +31,12 @@ const moment = require('moment');
 // Async module to handle asynchronous callbacks
 var async = require('async');
 
+//Import mongoose to manage access to sensordb
+const mongoose = require('mongoose');
+
+//Import our own custom sensor model
+const sensorModel = require('./models/sensor-model');
+
 /*-------------------------------------------------------------------
 CUSTOM IMPORTS
 -------------------------------------------------------------------*/
@@ -42,24 +48,20 @@ CLASS DEFINITION
 -------------------------------------------------------------------*/
 
 //'Class' constructor
-function TI_SensorTag(UUID, sensorID, sensorName, roomID, roomName, logInterval)
+function TI_SensorTag(config)
 {
-    this._UUID = UUID;
-    this._sensorID = sensorID;
-    this._sensorName = sensorName;
-    this._roomId = roomID;
-    this._roomName = roomName;
-
-    this._logInterval = logInterval;
-    this._logName = sensorID + '_' + sensorName + '.log';
+    this._config = config;
+    this._logName = config.id + '_' + config.sensorName + '.log';
     this._logger = new Logger("./logs");
+
+    this._config
 }
 
 TI_SensorTag.prototype.discover = function()
 {
     //SensorTag.discover(this.getTag.bind(this)); 
     console.log('Trying to connect to sensor with UUID: %s', this._UUID);
-    SensorTag.discoverById(this._UUID, this.getTag.bind(this));
+    SensorTag.discoverById(this._config.UUID, this.getTag.bind(this));
 };
 
 TI_SensorTag.prototype.getTag = function(tag)
@@ -116,10 +118,6 @@ TI_SensorTag.prototype.readSensors = function()
                 
                 this.tag.readIrTemperature(function(error, objectTemperature, ambientTemperature)
                 {
-                    //console.log('readIrTemperature');
-                    //console.log('\tobject temperature = %d °C', objectTemperature.toFixed(1));
-                    //console.log('\tambient temperature = %d °C', ambientTemperature.toFixed(1));
-
                     callback(null, ambientTemperature);
                 });
             }.bind(this),
@@ -128,9 +126,6 @@ TI_SensorTag.prototype.readSensors = function()
             {
                 this.tag.readLuxometer(function(error, lux)
                 {
-                    //console.log('readLuxometer');
-                    //console.log('\tlux = %d', lux.toFixed(1));
-
                     callback(null, lux);
                 });
             }.bind(this),
@@ -139,10 +134,6 @@ TI_SensorTag.prototype.readSensors = function()
             {
                 this.tag.readHumidity(function(error, temperature, humidity)
                 {
-                    //console.log('readHumidity');
-                    //console.log('\ttemperature = %d °C', temperature.toFixed(1));
-                    //console.log('\thumidity = %d %', humidity.toFixed(1));
-
                     callback(null, humidity);
                 });
             }.bind(this)
@@ -153,10 +144,10 @@ TI_SensorTag.prototype.readSensors = function()
             if(data.length == 3)
             {
                 var timestamp = moment().utc().format();
-                var logString = '{\"sensorID\":\"' + this._sensorID +
-                                '\",\"sensorName\":\"' + this._sensorName + 
-                                '\",\"roomID\":\"' + this._roomId + 
-                                '\",\"roomName\":\"' + this._roomName + 
+                var logString = '{\"sensorID\":\"' + this._config.id +
+                                '\",\"sensorName\":\"' + this._config._sensorName + 
+                                '\",\"roomID\":\"' + this._config._roomId + 
+                                '\",\"roomName\":\"' + this._config._roomName + 
                                 '\",\"temperature\":\"' + data[0] + 
                                 '\",\"temperatureUnit\":\"C' +
                                 '\",\"illuminance\":\"' +  data[1] + 
@@ -186,6 +177,37 @@ TI_SensorTag.prototype.listenForButton = function()
             this.tag.disconnect();
         }
     });
+}
+
+TI_SensorTag.prototype.disconnect = function()
+{
+    this.tag.disconnect();
+}
+
+TI_SensorTag.prototype.getLoggingEnabled = function()
+{
+    return this._config.loggingEnabled;
+}
+
+TI_SensorTag.prototype.getUUID = function()
+{
+    return this._config.UUID;
+}
+
+TI_SensorTag.prototype.getID = function()
+{
+    return this._config.id;
+}
+
+TI_SensorTag.prototype.getConfig = function()
+{
+    return this._config;
+}
+
+TI_SensorTag.prototype.updateConfig = function(newConfig)
+{
+    this._config = newConfig;
+
 }
 
 //Enable class to be exported

@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>Team Mystic Back-end Server</title>
+    <meta name="description" content="HMS Back-end Server">
+    <meta name="author" content="Viviana Capote">
+    <h1>Mystic Server Running!</h1>
+    <div class="data">
+        <h2 class="viewsensors-heading">Currently Configured Sensors:</h2>
+        <!--This div is dynamically populated with information provided by the HTTP GET request-->
+        <!--To apply styling to the div section you'll need to modify the javascrip function 'buildSensorHTML-->
+    </div>
+    <div>
+        <form class="form-addsensor">
+            <h2 class="form-addsensor-heading">Add a New Room Sensor:</h2>
+            <p>Use the following form to add a Texas Instrument SensorTag to monitor a specific household room.</p>
+            <br>Sensor UUID:
+            <br>
+            <input class="form-control" type="text" required name="UUID">
+            <br>Room ID:
+            <br>
+            <input class="form-control" type="text" required name="roomID">
+            <br>Room Name:
+            <br>
+            <input class="form-control" type="text" required name="roomName">
+            <br>Log Interval:
+            <br>
+            <select name="logInterval">
+                <option value="5000">5s</option>
+                <option value="10000">10s</option>
+                <option value="20000">20s</option>
+                <option value="30000">30s</option>
+                <option value="60000">1min</option>
+                <option value="300000">5min</option>
+                <option value="600000">10min</option>
+            </select>
+            <br>LoggingEnabled:
+            <br>
+            <select name="loggingEnabled">
+                <option value="false">No</option>
+                <option value="true">Yes</option>
+            </select>
+            <br>
+            <br>
+            <button class="btn" type="submit">Save</button>
+        </form>
+    </div>
+</head>
+
+<body>
+    <!--script src="js/scripts.js"></script-->
+    <!--Import JQuery -->
+    <script src="https://code.jquery.com/jquery-3.1.1.js" integrity="sha256-16cdPddA6VdVInumRGo6IbivbERE8p7CQR3HzTBuELA=" crossorigin="anonymous"></script>
+    <!-- Custom Script -->
+    <script>
+    var apiURL = "http://hmps.localtunnel.me/api";
+    var sensorDivClass = "";
+
+    //Takes in a sensor data and divclass name and generates a string with HTML code to inject into the page
+    buildSensorHTML = function(data, divclass)
+    {
+        var html = '<div class="' + divclass + '">';
+        html += '<h3> ' + data['sensorName'] + ' Sensor Configuration </h3>';
+        html += 'Sensor ID = ' + data['_id'];
+        html += '<br>Sensor UUID = ' + data['UUID'];
+        html += '<br>Room ID = ' + data['roomID'];
+        html += '<br>Room Name = ' + data['roomName'];
+
+        html += '<form class=\"edit-' + data['_id'] + '\">';
+        html += '<br>Log Interval:';
+        html += "<select name=\"logInterval\">";
+        html += '<option ' + ((data['logInterval'] == 5000) ? 'selected' : '') + ' value=\"5000\">5s</option>';
+        html += '<option ' + ((data['logInterval'] == 10000) ? 'selected' : '') + ' value=\"10000\">10s</option>';
+        html += '<option ' + ((data['logInterval'] == 20000) ? 'selected' : '') + ' alue=\"20000\">20s</option>';
+        html += '<option ' + ((data['logInterval'] == 30000) ? 'selected' : '') + ' value=\"30000\">30s</option>';
+        html += '<option ' + ((data['logInterval'] == 60000) ? 'selected' : '') + ' value=\"60000\">1min</option>';
+        html += '<option ' + ((data['logInterval'] == 300000) ? 'selected' : '') + ' value=\"300000\">5min</option>';
+        html += '<option ' + ((data['logInterval'] == 600000) ? 'selected' : '') + ' value=\"600000\">10min</option>';
+        html += '</select>';
+        html += '<br>LoggingEnabled:';
+        html += '<select name=\"loggingEnabled\">';
+        html += '<option ' + ((data['loggingEnabled'] == "false") ? 'selected' : '') + ' value=\"false\">No</option>';
+        html += '<option ' + ((data['loggingEnabled'] == "true") ? 'selected' : '') + ' value=\"true\">Yes</option>';
+        html += '</select>'
+        html += '</form>';
+
+
+        // html += '<br>Connected=' + ((data['connected']) ? 'Connected!' : 'Not Connected');
+        html += '<br><br><button class="btn" onClick="updateSensor(\'' + data['_id'] + '\')"> Update </button>';
+        html += '<button class="btn" onClick="deleteSensor(\'' + data['_id'] + '\')"> Delete </button>';
+
+
+        return html += '</div>';
+
+        // for (element in data)
+        // {
+        //      if(data[element] == false) continue;
+        //      html += element + ': ' + data[element] + '<br>';
+        // }
+    }
+
+    /*CRUD Functions (Create, Retrieve, Update, Delete) */
+
+    //Use POST request to add new sensor with info from form
+    createSensor = function()
+    {
+        $.ajax(
+        {
+            url: apiURL + '/sensors/',
+            type: 'POST',
+            data: $('.form-addsensor').serialize(),
+            success: function()
+            {
+                location.reload();
+            }
+        });
+    }
+
+    //Retrieve a JSON with all sensor configurations
+     retreiveSensors = function()
+    {
+        $.ajax(
+        {
+            type: "GET",
+            url: apiURL + '/sensors/'
+        }).then(function(data)
+        {
+            console.log(JSON.stringify(data));
+
+            for (var i = 0; i < data.length; i++)
+            {
+                $('.data').append(buildSensorHTML(data[i], sensorDivClass));
+            }
+
+        });
+    }
+
+
+    //Update sensor based on specific sensor ID
+    updateSensor = function(sensorID)
+    {
+        $.ajax(
+        {
+            type: "PUT",
+            url: apiURL + '/sensors/' + sensorID,
+            data: $('.edit-' + sensorID).serialize(),
+            success: function(result)
+            {
+                if (!result)
+                    console.log("Update failed!");
+                else
+                    console.log("Update success!");
+
+                //location.reload();
+            }
+        });
+
+        location.reload();
+    }
+
+    //Call REST API delete request for a specific sensor ID
+    deleteSensor = function(sensorID)
+    {
+        $.ajax(
+        {
+            type: "DELETE",
+            url: apiURL + '/sensors/' + sensorID,
+            success: function(result)
+            {
+                if (!result)
+                    console.log("Delete failed!");
+                else
+                    console.log("Delete success!");
+            }
+        });
+
+        location.reload();
+    }
+
+    /*EVENT HANDLERS*/
+
+    //Automatically query sensor data and dynamically populate page with sensor data once the page has loaded
+    $(document).ready(function()
+    {
+        retreiveSensors();
+    });
+
+    //Handle form submit event
+    $('.form-addsensor').submit(function(e)
+    {
+        e.preventDefault();
+        createSensor();
+
+    });
+    </script>
+</body>
+
+</html>
