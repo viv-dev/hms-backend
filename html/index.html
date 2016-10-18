@@ -7,12 +7,49 @@
     <meta name="description" content="HMS Back-end Server">
     <meta name="author" content="Viviana Capote">
     <h1>Mystic Server Running!</h1>
+</head>
+
+<body>
     <div class="data">
         <h2 class="viewsensors-heading">Currently Configured Sensors:</h2>
         <!--This div is dynamically populated with information provided by the HTTP GET request-->
-        <!--To apply styling to the div section you'll need to modify the javascrip function 'buildSensorHTML-->
+        <!--To apply styling to the div section you'll need to modify the javascript function 'buildSensorHTML-->
+        
+        <!--    EXAMPLE HTML SECTION  -->
+         <!-- The following is an example of the code auto generated  -->
+        <!--div class="sensor-data">
+            <h3>Example Sensor Config</h3> 
+            Sensor ID = 57efe224941dda7399ab34b2
+            <br> Sensor UUID = a0e6f8af5407
+            <br> Room ID = 2
+            <br> Room Name = Kitchen
+            <form class="edit-57efe224941dda7399ab34b2">
+                <select name="logInterval">
+                    <option value="5000">5s</option>
+                    <option value="10000">10s</option>
+                    <option value="20000">20s</option>
+                    <option value="30000">30s</option>
+                    <option value="60000">1min</option>
+                    <option value="300000">5min</option>
+                    <option value="600000">10min</option>
+                </select>
+                <br>LoggingEnabled:
+                <br>
+                <select name="loggingEnabled">
+                    <option value="false">No</option>
+                    <option value="true">Yes</option>
+                </select>
+            </form>
+            <br>
+            <br>
+            <button class="btn" onClick="updateSensor('57efe224941dda7399ab34b2')"> Update </button>
+            <button class="btn" onClick="deleteSensor('57efe224941dda7399ab34b2')"> Delete </button>
+        </div>
+        <!--    END EXAMPLE HTML SECTION  -->
+
+
     </div>
-    <div>
+    <div class="inputform">
         <form class="form-addsensor">
             <h2 class="form-addsensor-heading">Add a New Room Sensor:</h2>
             <p>Use the following form to add a Texas Instrument SensorTag to monitor a specific household room.</p>
@@ -47,15 +84,13 @@
             <button class="btn" type="submit">Save</button>
         </form>
     </div>
-</head>
-
-<body>
     <!--script src="js/scripts.js"></script-->
     <!--Import JQuery -->
     <script src="https://code.jquery.com/jquery-3.1.1.js" integrity="sha256-16cdPddA6VdVInumRGo6IbivbERE8p7CQR3HzTBuELA=" crossorigin="anonymous"></script>
     <!-- Custom Script -->
     <script>
-    var apiURL = "http://hmps.localtunnel.me/api";
+    var apiURL = "http://mystic:8080/api"; //URL to use locally
+    //var apiURL = "http://hmps.localtunnel.me/api"; //URL to use when running server via tunnel
     var sensorDivClass = "";
 
     //Takes in a sensor data and divclass name and generates a string with HTML code to inject into the page
@@ -83,7 +118,7 @@
         html += '<select name=\"loggingEnabled\">';
         html += '<option ' + ((data['loggingEnabled'] == "false") ? 'selected' : '') + ' value=\"false\">No</option>';
         html += '<option ' + ((data['loggingEnabled'] == "true") ? 'selected' : '') + ' value=\"true\">Yes</option>';
-        html += '</select>'
+        html += '</select>';
         html += '</form>';
 
 
@@ -119,7 +154,7 @@
     }
 
     //Retrieve a JSON with all sensor configurations
-     retreiveSensors = function()
+    retreiveSensors = function()
     {
         $.ajax(
         {

@@ -53,14 +53,13 @@ function TI_SensorTag(config)
     this._config = config;
     this._logName = config.id + '_' + config.sensorName + '.log';
     this._logger = new Logger("./logs");
-
-    this._config
+    this._isConnected = false;
 }
 
 TI_SensorTag.prototype.discover = function()
 {
     //SensorTag.discover(this.getTag.bind(this)); 
-    console.log('Trying to connect to sensor with UUID: %s', this._UUID);
+    console.log('Trying to connect to sensor with UUID: %s', this._config.UUID);
     SensorTag.discoverById(this._config.UUID, this.getTag.bind(this));
 };
 
@@ -74,10 +73,15 @@ TI_SensorTag.prototype.getTag = function(tag)
         //Report when tag is disconnected
         this.tag.on('disconnect', function()
         {
-            console.log('Disconnected!');
-        });
+            console.log('Disconnected from sensor UUID: %s', this._config.UUID);
+            this._isConnected = false;
 
-        this.connectAndSetUp(); 
+        }.bind(this));
+
+        if(this._config.loggingEnabled == 'true')
+            this.connectAndSetUp(); 
+        else
+            this.disconnect();
     } 
     else
     {
@@ -89,9 +93,9 @@ TI_SensorTag.prototype.connectAndSetUp = function()
 {
     //attempt to connect to the tag
     console.log('Sensor tag discovered! Connecting and setting up...');
-    
+    this._isConnected = true;
+
     this.tag.connectAndSetUp(this.enableSensors.bind(this));
-    this.tag.notifySimpleKey(this.listenForButton.bind(this));
 };
 
 TI_SensorTag.prototype.enableSensors = function()
@@ -145,16 +149,16 @@ TI_SensorTag.prototype.readSensors = function()
             {
                 var timestamp = moment().utc().format();
                 var logString = '{\"sensorID\":\"' + this._config.id +
-                                '\",\"sensorName\":\"' + this._config._sensorName + 
-                                '\",\"roomID\":\"' + this._config._roomId + 
-                                '\",\"roomName\":\"' + this._config._roomName + 
+                                '\",\"sensorName\":\"' + this._config.sensorName + 
+                                '\",\"roomID\":\"' + this._config.roomID + 
+                                '\",\"roomName\":\"' + this._config.roomName + 
                                 '\",\"temperature\":\"' + data[0] + 
                                 '\",\"temperatureUnit\":\"C' +
                                 '\",\"illuminance\":\"' +  data[1] + 
                                 '\",\"illuminanceUnit\":\"LUX' +
                                 '\",\"humidity\":\"' + data[2] +
                                 '\",\"humidityUnit\":\"RH%' +
-                                '\",\"@timestamp\":\"' + timestamp + '\"}\n';
+                                '\",\"timestamp\":\"' + timestamp + '\"}\n';
 
                 this._logger.logSensorData(this._logName, logString);
             }
@@ -164,24 +168,24 @@ TI_SensorTag.prototype.readSensors = function()
             }
         }.bind(this));
 
-    setTimeout(this.readSensors.bind(this), this._logInterval);
+    setTimeout(this.readSensors.bind(this), this._config.logInterval);
 }
 
-// Disconnect the sensor tag when both the left and right buttons are pressed
-TI_SensorTag.prototype.listenForButton = function()
+
+TI_SensorTag.prototype.deleteTag = function()
 {
-    this.tag.on('simpleKeyChange', function(left,right)
-    {
-        if( left && right )
-        {
-            this.tag.disconnect();
-        }
-    });
+    delete this.tag;
 }
 
 TI_SensorTag.prototype.disconnect = function()
 {
-    this.tag.disconnect();
+    if(this._isConnected)
+        this.tag.disconnect();
+}
+
+TI_SensorTag.prototype.isConnected = function()
+{
+    return this._isConnected;
 }
 
 TI_SensorTag.prototype.getLoggingEnabled = function()
@@ -206,7 +210,27 @@ TI_SensorTag.prototype.getConfig = function()
 
 TI_SensorTag.prototype.updateConfig = function(newConfig)
 {
+    var oldEnabled = this._config.loggingEnabled;
+
     this._config = newConfig;
+
+      console.log("Old enable: " + oldEnabled + " New enable: " + this._config.loggingEnabled);
+
+    if((this._config.loggingEnabled == 'false') && (oldEnabled == 'true'))
+    {
+        console.log('Disconnecting sensor...');
+        this.disconnect();
+    }
+    else if((this._config.loggingEnabled == 'true') && (oldEnabled == 'false'))
+    {
+        console.log('Connecting sensor...');
+        this.discover();
+    }
+
+    // if(oldInterval=='false' && this._config.logInterval == 'true')
+    //     this.discover();
+    // else if(oldInterval =='true' && this._config.logInterval =='false')
+    //     this.disconnect();
 
 }
 
