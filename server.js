@@ -20,14 +20,23 @@ const mongoose = require('mongoose');
 //Import our own custom sensor model
 const sensorModel = require('./models/sensor-model');
 
-//Local tunnel to expose pi server
-//var localtunnel = require('localtunnel');
+//Time formatting module
+const moment = require('moment');
+
+//Import fs module for file read/write
+const fs = require('fs');
+
+//Import csv module for file parsing
+const parse = require('csv-parse');
 
 /*-------------------------------------------------------------------
 CUSTOM IMPORTS
 -------------------------------------------------------------------*/
 //Import sensor tag class
 const TI_SensorTag = require('./ti-sensortag');
+
+//Import custom logger class
+const Logger = require('./logger');
 
 /*-------------------------------------------------------------------
 GLOBAL VARIABLES
@@ -37,10 +46,13 @@ GLOBAL VARIABLES
 const dbDir = 'mongodb://localhost/sensordb';
 
 //Array to hold dynamically created sensortag objects
-var sensorTags = [];
+var sensorTags = []; 
 
-//Local tunnel config
-var opts = { subdomain : "hmps"};
+const MAX_INDEX = 14400;
+
+var powerIndex;
+
+var powerData = {};
 
 /*-------------------------------------------------------------------
 SENSOR OBJECT/CONFIG HANDLING
@@ -48,7 +60,7 @@ SENSOR OBJECT/CONFIG HANDLING
 
 function verifySensorData()
 {
-    //TO DO
+    return;//TO DO
 }
 
 
@@ -56,19 +68,19 @@ function addSensor(sensor)
 {
     sensorTags.push(new TI_SensorTag(sensor));
 
-    if(sensor.loggingEnabled == 'true')
+    if (sensor.loggingEnabled == 'true')
         connectSensors();
 }
 
 function deleteSensor(sensor)
 {
     console.log("Deleting sensor with UUID: " + sensor.UUID);
-    
-    for(var i=0; i < sensorTags.length; i++)
+
+    for (var i = 0; i < sensorTags.length; i++)
     {
-        if((sensorTags[i].getID() == sensor.id))
+        if ((sensorTags[i].getID() == sensor.id))
         {
-            if(sensorTags[i].isConnected())
+            if (sensorTags[i].isConnected())
                 sensorTags[i].disconnect();
 
             console.log('Deleting sensor object at index: %d with UUID: %s', i, sensor.UUID);
@@ -81,9 +93,9 @@ function deleteSensor(sensor)
 function connectSensors()
 {
     console.log("Connecting sensors..");
-    for(var i=0; i < sensorTags.length; i++)
+    for (var i = 0; i < sensorTags.length; i++)
     {
-        if((sensorTags[i].getLoggingEnabled() == 'true') && (sensorTags[i].isConnected() == false))
+        if ((sensorTags[i].getLoggingEnabled() == 'true') && (sensorTags[i].isConnected() == false))
         {
             console.log("Logging status is: %s", sensorTags[i].getLoggingEnabled());
             sensorTags[i].discover();
@@ -96,14 +108,14 @@ function disconnectSensors()
     console.log("Disconnecting sensors...");
     var num = 0;
 
-    for(var i=0; i < sensorTags.length; i++)
+    for (var i = 0; i < sensorTags.length; i++)
     {
-        if(sensorTags[i].isConnected())
+        if (sensorTags[i].isConnected())
         {
             sensorTags[i].disconnect();
             num++;
         }
-    }   
+    }
 
     console.log("Disconnected %d sensors.", num);
 }
@@ -113,9 +125,9 @@ function updateSensor(sensor)
     console.log("Update sensor called");
 
     console.log("Looking for sensor id: %s", sensor.id);
-    for(var i=0; i < sensorTags.length; i++)
+    for (var i = 0; i < sensorTags.length; i++)
     {
-        if(sensorTags[i].getID() == sensor.id)
+        if (sensorTags[i].getID() == sensor.id)
         {
             sensorTags[i].updateConfig(sensor);
             break;
@@ -130,7 +142,7 @@ function loadSensors()
         console.log('Loading sensors...');
 
         var i = 0;
-        for(i; i < sensors.length; i++)
+        for (i; i < sensors.length; i++)
         {
             sensorTags.push(new TI_SensorTag(sensors[i]));
         }
@@ -141,6 +153,171 @@ function loadSensors()
     });
 }
 
+/*-------------------------------------------------------------------
+FAKE POWER MONITORING
+-------------------------------------------------------------------*/
+function calculateIndex()
+{
+    console.log("Hours: %d Minutes: %d Seconds: %d", moment().hours(), moment().minutes(), moment().seconds());
+
+    var value1 = moment().hours() * 600;
+    var value2 = moment().minutes() * 10;
+    var value3 = moment().seconds()/6;
+
+    var index = value1 + value2 + value3 + 1;
+
+    console.log("Index calculate: " + index);
+
+    return Math.round(index);
+
+}   
+
+function readCSVFile()
+{
+    fs.readFile('./csv/24-hr-power.csv', function(err, data)
+    {
+        if(err)
+        {
+            console.log(err);
+        }
+        else
+        {
+            console.log("File successfully read!");
+
+            parse(data, {columns : ['Time', 'Total', 'Kettle', 'Toaster', 'Fridge', 'Oven', 'Hot Water', 'TV', 'Home Entertainment', 'Computer', 'Air Con']}, 
+            function(err, output){
+                powerData = output;
+                powerIndex = calculateIndex();
+                logSpoofedPower();
+            });
+        }
+    });
+}
+
+
+function logSpoofedPower()
+{
+    var timestamp = moment().utc().format();
+
+    var logString = '{\"deviceID\":\"0' +
+                    '\",\"deviceName\":\"Total' + 
+                    '\",\"roomID\":\"0' +  
+                    '\",\"roomName\":\"Household'+ 
+                    '\",\"voltage\":\"0'+ 
+                    '\",\"voltageUnit\":\"V' +
+                    '\",\"current\":\"0'+ 
+                    '\",\"currentUnit\":\"A' +
+                    '\",\"power\":\"' + powerData[powerIndex]['Total'] +
+                    '\",\"powerUnit\":\"W' +
+                    '\",\"timestamp\":\"' + timestamp + '\"}\n';
+
+    logger.logSensorData('0_Total.log', logString);
+
+    logString = '{\"deviceID\":\"1' +
+                    '\",\"deviceName\":\"Kettle' + 
+                    '\",\"roomID\":\"1' +  
+                    '\",\"roomName\":\"Kitchen'+ 
+                    '\",\"voltage\":\"0'+ 
+                    '\",\"voltageUnit\":\"V' +
+                    '\",\"current\":\"0'+ 
+                    '\",\"currentUnit\":\"A' +
+                    '\",\"power\":\"' + powerData[powerIndex]['Kettle'] +
+                    '\",\"powerUnit\":\"W' +
+                    '\",\"timestamp\":\"' + timestamp + '\"}\n';
+
+    logger.logSensorData('1_KitchenKettle.log', logString);
+
+    logString = '{\"deviceID\":\"2' +
+                    '\",\"deviceName\":\"Toaster' + 
+                    '\",\"roomID\":\"1' +  
+                    '\",\"roomName\":\"Kitchen'+ 
+                    '\",\"voltage\":\"0'+ 
+                    '\",\"voltageUnit\":\"V' +
+                    '\",\"current\":\"0'+ 
+                    '\",\"currentUnit\":\"A' +
+                    '\",\"power\":\"' + powerData[powerIndex]['Toaster'] +
+                    '\",\"powerUnit\":\"W' +
+                    '\",\"timestamp\":\"' + timestamp + '\"}\n';
+
+    logger.logSensorData('2_KitchenToaster.log', logString);
+
+    logString = '{\"deviceID\":\"3' +
+                    '\",\"deviceName\":\"Fridge' + 
+                    '\",\"roomID\":\"0' +  
+                    '\",\"roomName\":\"Kitchen'+ 
+                    '\",\"voltage\":\"0'+ 
+                    '\",\"voltageUnit\":\"V' +
+                    '\",\"current\":\"0'+ 
+                    '\",\"currentUnit\":\"A' +
+                    '\",\"power\":\"' + powerData[powerIndex]['Fridge'] +
+                    '\",\"powerUnit\":\"W' +
+                    '\",\"timestamp\":\"' + timestamp + '\"}\n';
+
+    logger.logSensorData('3_KitchenFridge.log', logString);
+
+    logString = '{\"deviceID\":\"4' +
+                    '\",\"deviceName\":\"Oven' + 
+                    '\",\"roomID\":\"1' +  
+                    '\",\"roomName\":\"Kitchen'+ 
+                    '\",\"voltage\":\"0'+ 
+                    '\",\"voltageUnit\":\"V' +
+                    '\",\"current\":\"0'+ 
+                    '\",\"currentUnit\":\"A' +
+                    '\",\"power\":\"' + powerData[powerIndex]['Oven'] +
+                    '\",\"powerUnit\":\"W' +
+                    '\",\"timestamp\":\"' + timestamp + '\"}\n';
+
+    logger.logSensorData('4_KitchenOven.log', logString);
+
+    logString = '{\"deviceID\":\"5' +
+                    '\",\"deviceName\":\"TV' + 
+                    '\",\"roomID\":\"2' +  
+                    '\",\"roomName\":\"Lounge'+ 
+                    '\",\"voltage\":\"0'+ 
+                    '\",\"voltageUnit\":\"V' +
+                    '\",\"current\":\"0'+ 
+                    '\",\"currentUnit\":\"A' +
+                    '\",\"power\":\"' + powerData[powerIndex]['Lounge'] +
+                    '\",\"powerUnit\":\"W' +
+                    '\",\"timestamp\":\"' + timestamp + '\"}\n';
+
+    logger.logSensorData('5_LoungeTV.log', logString);
+
+    logString = '{\"deviceID\":\"6' +
+                    '\",\"deviceName\":\"Home Entertainment' + 
+                    '\",\"roomID\":\"1' +  
+                    '\",\"roomName\":\"Lounge'+ 
+                    '\",\"voltage\":\"0'+ 
+                    '\",\"voltageUnit\":\"V' +
+                    '\",\"current\":\"0'+ 
+                    '\",\"currentUnit\":\"A' +
+                    '\",\"power\":\"' + powerData[powerIndex]['Home Entertainment'] +
+                    '\",\"powerUnit\":\"W' +
+                    '\",\"timestamp\":\"' + timestamp + '\"}\n';
+
+    logger.logSensorData('6_LoungeHomeEntertainment.log', logString);
+
+    logString = '{\"deviceID\":\"7' +
+                    '\",\"deviceName\":\"Computer' + 
+                    '\",\"roomID\":\"4' +  
+                    '\",\"roomName\":\"Office'+ 
+                    '\",\"voltage\":\"0'+ 
+                    '\",\"voltageUnit\":\"V' +
+                    '\",\"current\":\"0'+ 
+                    '\",\"currentUnit\":\"A' +
+                    '\",\"power\":\"' + powerData[powerIndex]['Computer'] +
+                    '\",\"powerUnit\":\"W' +
+                    '\",\"timestamp\":\"' + timestamp + '\"}\n';
+
+    logger.logSensorData('7_OfficeComputer.log', logString);
+
+    powerIndex++;
+
+    if(powerIndex == MAX_INDEX)
+        powerIndex = 0;
+
+    setTimeout(logSpoofedPower, 6000);
+}
 /*-------------------------------------------------------------------
 SCRIPT START
 -------------------------------------------------------------------*/
@@ -160,7 +337,10 @@ var router = express.Router();
 
 // Configure body parser to be able to parse POST data
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.urlencoded(
+{
+    extended: true
+}));
 
 //******************REST API HANDLING******************
 /*
@@ -177,7 +357,8 @@ router.use(function(req, res, next)
 });
 
 // Make sure that cross-site requests are accepted
-router.use(function (req, res, next) {
+router.use(function(req, res, next)
+{
 
     // Website you wish to allow to connect
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -188,144 +369,141 @@ router.use(function (req, res, next) {
     // Request headers you wish to allow
     res.setHeader('Access-Control-Allow-Headers', 'X-Requested-With, Content-Type');
 
-    // Set to true if you need the website to include cookies in the requests sent
-    // to the API (e.g. in case you use sessions)
-    //res.setHeader('Access-Control-Allow-Credentials', true);
-
     // Pass to next layer of middleware
     next();
 });
 
 //Sensor API Routes
 router.route('/sensors')
-    
-    // ***** CREATE *******/
-    // Add a sensor using HTTP POST (accessed at POST http://localhost:8080/api/sensors)
-    .post(function(req,res)
+
+// ***** CREATE *******/
+// Add a sensor using HTTP POST (accessed at POST http://localhost:8080/api/sensors)
+.post(function(req, res)
+{
+    var sensor = new sensorModel();
+
+    console.log(req.body);
+
+    sensor.UUID = req.body.UUID;
+    sensor.sensorName = req.body.roomName + 'Environment';
+    sensor.roomID = req.body.roomID;
+    sensor.roomName = req.body.roomName;
+    sensor.logInterval = req.body.logInterval;
+    sensor.loggingEnabled = req.body.loggingEnabled;
+
+
+    sensor.save(function(err)
     {
-        var sensor = new sensorModel();
+        if (err)
+            res.send(err);
 
-        console.log(req.body);
-
-        // console.log('UUID is ' + req.body.UUID);
-        // console.log('sensorID is ' + req.body.sensorID);
-        // console.log('sensorName is ' + req.body.sensorName);
-        // console.log('roomID is ' + req.body.roomID);
-        // console.log('roomName is ' + req.body.roomName);
-        // console.log('logInterval is ' + req.body.logInterval);
-        // console.log('loggingEnabled is ' + req.body.loggingEnabled);
-
-        sensor.UUID = req.body.UUID;
-        sensor.sensorName = req.body.roomName + 'Environment';
-        sensor.roomID = req.body.roomID;
-        sensor.roomName = req.body.roomName;
-        sensor.logInterval = req.body.logInterval;
-        sensor.loggingEnabled = req.body.loggingEnabled;
-
-
-        sensor.save(function(err)
+        res.json(
         {
-            if(err)
-                res.send(err);
-
-            res.json({message: 'Sensor added!'});
-
-            //Once successfully saved create a new sensorhandler object
-            addSensor(sensor);
+            message: 'Sensor added!'
         });
 
-    })
-
-    // ***** RETRIEVE ALL *******/
-    //Returns all sensors from a GET request at http://localhost:8080/api/sensors
-    .get(function(req, res)
-    {
-        sensorModel.find(function(err, sensors)
-        {
-            if(err)
-                res.send(err);
-
-            //console.log(sensors);
-            res.json(sensors);
-        })
+        //Once successfully saved create a new sensorhandler object
+        addSensor(sensor);
     });
+
+})
+
+// ***** RETRIEVE ALL *******/
+//Returns all sensors from a GET request at http://localhost:8080/api/sensors
+.get(function(req, res)
+{
+    sensorModel.find(function(err, sensors)
+    {
+        if (err)
+            res.send(err);
+
+        //console.log(sensors);
+        res.json(sensors);
+    })
+});
 //end of /sensors routes
 
 
 //Modify sensor based on specific sensor id
 router.route('/sensors/:sensor_id')
-    
-    // ***** RETRIEVE ONE *******/
-    //Return a specific sensor based on id
-    .get(function(req, res)
+
+// ***** RETRIEVE ONE *******/
+//Return a specific sensor based on id
+.get(function(req, res)
+{
+    sensorModel.findById(req.params.sensor_id, function(err, sensor)
     {
-        sensorModel.findById(req.params.sensor_id, function(err, sensor)
+        if (err)
+            res.send(err);
+
+        //console.log(sensor);
+        res.json(sensor);
+    });
+})
+
+// ***** UPDATE ONE *******/
+//Update a specific sensor based on id
+.put(function(req, res)
+{
+    sensorModel.findById(req.params.sensor_id, function(err, sensor)
+    {
+        if (err)
+            res.send(err);
+
+        var prevLoggingEnabled = sensor.loggingEnabled;
+        var prevConnected = sensor.connected;
+
+        console.log('loggingEnabled is ' + req.body.loggingEnabled);
+        sensor.logInterval = req.body.logInterval;
+        sensor.loggingEnabled = req.body.loggingEnabled;
+
+        //Once successfully saved update sensor handler object
+        updateSensor(sensor);
+
+        sensor.save(function(err)
         {
-            if(err)
+            if (err)
                 res.send(err);
 
-            //console.log(sensor);
-            res.json(sensor);
-        });
-    })
-
-    // ***** UPDATE ONE *******/
-    //Update a specific sensor based on id
-    .put(function(req, res)
-    {
-        sensorModel.findById(req.params.sensor_id, function(err, sensor)
-        {
-            if(err)
-                res.send(err);
-
-            var prevLoggingEnabled = sensor.loggingEnabled;
-            var prevConnected = sensor.connected;
-
-            console.log('loggingEnabled is ' + req.body.loggingEnabled);
-            sensor.logInterval = req.body.logInterval;
-            sensor.loggingEnabled = req.body.loggingEnabled;
-
-            //Once successfully saved update sensor handler object
-            updateSensor(sensor);  
-
-            sensor.save(function(err)
+            res.json(
             {
-                if(err)
-                    res.send(err);
-
-                res.json({message:'Sensor updated!'});
-                console.log('Sensor updated!');
+                message: 'Sensor updated!'
             });
-
+            console.log('Sensor updated!');
         });
-    })
-
-    // ***** DELETE ONE *******/
-    //Delete a specific sensor based on id
-    .delete(function(req,res)
-    {
-        sensorModel.findById(req.params.sensor_id, function(err, sensor)
-        {
-            if(err)
-                res.send(err);
-
-            deleteSensor(sensor);
-
-            sensorModel.remove(
-            {
-                _id: req.params.sensor_id
-            }, function(err, sensor)
-            {
-                if(err)
-                    res.send(err);
-
-                res.json({ message: 'Successfully deleted'});
-            });
-
-        });
-
 
     });
+})
+
+// ***** DELETE ONE *******/
+//Delete a specific sensor based on id
+.delete(function(req, res)
+{
+    sensorModel.findById(req.params.sensor_id, function(err, sensor)
+    {
+        if (err)
+            res.send(err);
+
+        deleteSensor(sensor);
+
+        sensorModel.remove(
+        {
+            _id: req.params.sensor_id
+        }, function(err, sensor)
+        {
+            if (err)
+                res.send(err);
+
+            res.json(
+            {
+                message: 'Successfully deleted'
+            });
+        });
+
+    });
+
+
+});
 //end of /sensors/:sensor_id routes
 
 
@@ -368,13 +546,11 @@ process.on('SIGINT', function()
     process.exit();
 });
 
-//******************LOCAL TUNNEL******************
-/*var tunnel = localtunnel(port, opts, function(err, tunnel)
-{
-    console.log('Received localtunnel URL: %s', tunnel.url);
-});*/
-
 //******************SENSOR HANDLING******************
+var logger = new Logger("./logs");
+
+readCSVFile();
+
 
 // Load and create objects for all sensors configured in the database
 loadSensors();
