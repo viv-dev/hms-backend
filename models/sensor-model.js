@@ -4,11 +4,11 @@ var Schema = mongoose.Schema;
 var SensorSchema = new Schema(
 {
 	UUID: String,
-	sensorID: String,
 	sensorName: String,
 	roomID: String,
 	roomName: String,
-	logInterval: Number
+	logInterval: Number, 
+	loggingEnabled: String
 
 });
 
