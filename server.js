@@ -54,6 +54,7 @@ var powerIndex;
 
 var powerData = {};
 
+const VOLTAGE = 230;
 /*-------------------------------------------------------------------
 SENSOR OBJECT/CONFIG HANDLING
 -------------------------------------------------------------------*/
@@ -203,9 +204,9 @@ function logSpoofedPower()
                     '\",\"deviceName\":\"Total' + 
                     '\",\"roomID\":\"0' +  
                     '\",\"roomName\":\"Household'+ 
-                    '\",\"voltage\":\"0'+ 
+                    '\",\"voltage\":\"'+ VOLTAGE +
                     '\",\"voltageUnit\":\"V' +
-                    '\",\"current\":\"0'+ 
+                    '\",\"current\":\"'+ powerData[powerIndex]['Total']/VOLTAGE + 
                     '\",\"currentUnit\":\"A' +
                     '\",\"power\":\"' + powerData[powerIndex]['Total'] +
                     '\",\"powerUnit\":\"W' +
@@ -217,9 +218,9 @@ function logSpoofedPower()
                     '\",\"deviceName\":\"Kettle' + 
                     '\",\"roomID\":\"1' +  
                     '\",\"roomName\":\"Kitchen'+ 
-                    '\",\"voltage\":\"0'+ 
+                    '\",\"voltage\":\"'+ VOLTAGE +
                     '\",\"voltageUnit\":\"V' +
-                    '\",\"current\":\"0'+ 
+                    '\",\"current\":\"'+ powerData[powerIndex]['Kettle']/VOLTAGE + 
                     '\",\"currentUnit\":\"A' +
                     '\",\"power\":\"' + powerData[powerIndex]['Kettle'] +
                     '\",\"powerUnit\":\"W' +
@@ -231,9 +232,9 @@ function logSpoofedPower()
                     '\",\"deviceName\":\"Toaster' + 
                     '\",\"roomID\":\"1' +  
                     '\",\"roomName\":\"Kitchen'+ 
-                    '\",\"voltage\":\"0'+ 
+                    '\",\"voltage\":\"'+ VOLTAGE + 
                     '\",\"voltageUnit\":\"V' +
-                    '\",\"current\":\"0'+ 
+                    '\",\"current\":\"'+ powerData[powerIndex]['Toaster']/VOLTAGE +
                     '\",\"currentUnit\":\"A' +
                     '\",\"power\":\"' + powerData[powerIndex]['Toaster'] +
                     '\",\"powerUnit\":\"W' +
@@ -245,9 +246,9 @@ function logSpoofedPower()
                     '\",\"deviceName\":\"Fridge' + 
                     '\",\"roomID\":\"0' +  
                     '\",\"roomName\":\"Kitchen'+ 
-                    '\",\"voltage\":\"0'+ 
+                    '\",\"voltage\":\"'+ VOLTAGE + 
                     '\",\"voltageUnit\":\"V' +
-                    '\",\"current\":\"0'+ 
+                    '\",\"current\":\"'+ powerData[powerIndex]['Fridge']/VOLTAGE +
                     '\",\"currentUnit\":\"A' +
                     '\",\"power\":\"' + powerData[powerIndex]['Fridge'] +
                     '\",\"powerUnit\":\"W' +
@@ -259,9 +260,9 @@ function logSpoofedPower()
                     '\",\"deviceName\":\"Oven' + 
                     '\",\"roomID\":\"1' +  
                     '\",\"roomName\":\"Kitchen'+ 
-                    '\",\"voltage\":\"0'+ 
+                    '\",\"voltage\":\"'+ VOLTAGE +
                     '\",\"voltageUnit\":\"V' +
-                    '\",\"current\":\"0'+ 
+                    '\",\"current\":\"'+ powerData[powerIndex]['Oven']/VOLTAGE +
                     '\",\"currentUnit\":\"A' +
                     '\",\"power\":\"' + powerData[powerIndex]['Oven'] +
                     '\",\"powerUnit\":\"W' +
@@ -273,9 +274,9 @@ function logSpoofedPower()
                     '\",\"deviceName\":\"TV' + 
                     '\",\"roomID\":\"2' +  
                     '\",\"roomName\":\"Lounge'+ 
-                    '\",\"voltage\":\"0'+ 
+                    '\",\"voltage\":\"'+ VOLTAGE + 
                     '\",\"voltageUnit\":\"V' +
-                    '\",\"current\":\"0'+ 
+                    '\",\"current\":\"'+ powerData[powerIndex]['Lounge']/VOLTAGE +
                     '\",\"currentUnit\":\"A' +
                     '\",\"power\":\"' + powerData[powerIndex]['Lounge'] +
                     '\",\"powerUnit\":\"W' +
@@ -287,9 +288,9 @@ function logSpoofedPower()
                     '\",\"deviceName\":\"Home Entertainment' + 
                     '\",\"roomID\":\"1' +  
                     '\",\"roomName\":\"Lounge'+ 
-                    '\",\"voltage\":\"0'+ 
+                    '\",\"voltage\":\"'+ VOLTAGE + 
                     '\",\"voltageUnit\":\"V' +
-                    '\",\"current\":\"0'+ 
+                    '\",\"current\":\"'+ powerData[powerIndex]['Home Entertainment']/VOLTAGE +
                     '\",\"currentUnit\":\"A' +
                     '\",\"power\":\"' + powerData[powerIndex]['Home Entertainment'] +
                     '\",\"powerUnit\":\"W' +
@@ -301,9 +302,9 @@ function logSpoofedPower()
                     '\",\"deviceName\":\"Computer' + 
                     '\",\"roomID\":\"4' +  
                     '\",\"roomName\":\"Office'+ 
-                    '\",\"voltage\":\"0'+ 
+                    '\",\"voltage\":\"'+ VOLTAGE + 
                     '\",\"voltageUnit\":\"V' +
-                    '\",\"current\":\"0'+ 
+                    '\",\"current\":\"'+ powerData[powerIndex]['Computer']/VOLTAGE +
                     '\",\"currentUnit\":\"A' +
                     '\",\"power\":\"' + powerData[powerIndex]['Computer'] +
                     '\",\"powerUnit\":\"W' +

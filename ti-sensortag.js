@@ -80,8 +80,8 @@ TI_SensorTag.prototype.getTag = function(tag)
 
         if(this._config.loggingEnabled == 'true')
             this.connectAndSetUp(); 
-        else
-            this.disconnect();
+        //else
+            //this.disconnect();
     } 
     else
     {
