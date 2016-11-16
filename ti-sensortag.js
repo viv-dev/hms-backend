@@ -1,23 +1,11 @@
 
 /*-------------------------------------------------------------------
-SENSOR TAG HANDLING
+*************************TI-SENSORTAG*******************************
+Description:    Sensor tag 'class' that allows multiple sensor tag objects
+                to be created with individual config.
+Author:         Viviana Capote
+Last Updated:   18/10/2016
 -------------------------------------------------------------------*/
-/*    	The sequence you need to follow in order to successfully
-    	read a tag:
-    		1) discover the tag
-    		2) connect to and set up the tag
-    		3) turn on the sensor you want to use (in this case, humidity, temp, and lux)
-    		4) turn on notifications for the sensor
-    		5) listen for changes from the sensortag
-
-    	Once all callbacks are tied, the sensortag library operates 
-    	asynchronously via the callback methods.
-
-*/
-
-//Module defines a set of functions used to setup and manage a TI sensor tag
-//The 'tag' object is passed in by the SensorTag.discover() function.
-
 
 /*-------------------------------------------------------------------
 NPM IMPORTS
